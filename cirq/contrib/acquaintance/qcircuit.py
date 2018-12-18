@@ -132,12 +132,12 @@ def get_qcircuit_diagram_info(
 
 def permutation_followed_by_non_permutation(
         first_op: ops.Operation, second_op: Optional[ops.Operation]) -> bool:
-    return (
-        ((second_op is None) or 
-         (set(first_op.qubits) & set(second_op.qubits))) and 
+    return bool(
+        ((second_op is None) or
+         (set(first_op.qubits) & set(second_op.qubits))) and
         isinstance(first_op, ops.GateOperation) and
         isinstance(first_op.gate, PermutationGate) and
-        not (isinstance(second_op, ops.GateOperation) and 
+        not (isinstance(second_op, ops.GateOperation) and
              isinstance(second_op.gate, PermutationGate)))
 
 PadAfterPermutationGates = qcircuit.PadBetweenOps(

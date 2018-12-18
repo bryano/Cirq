@@ -45,7 +45,7 @@ def line_macro(end: Tuple[int, int],
 
 def gate_macro(label: str = '') -> str:
     r"""Same as qcircuit's '\gate' but without final '\qw'."""
-    return ('*+<.6em>{' + str(label) + '} \POS ="i","i"+UR;"i"+UL **\dir{-};' 
+    return ('*+<.6em>{' + str(label) + '} \POS ="i","i"+UR;"i"+UL **\dir{-};'
             '"i"+DL **\dir{-};"i"+DR **\dir{-};"i"+UR **\dir{-},"i"')
 
 def ghost_macro(label: str='') -> str:
