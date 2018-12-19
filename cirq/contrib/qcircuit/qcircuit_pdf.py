@@ -48,8 +48,9 @@ def tex_to_pdf(
     pdf_kwargs = {'compiler': 'latexmk', 'compiler_args': ['-pdfps'],
                   **({} if pdf_kwargs is None else pdf_kwargs)}
 
-    doc = pylatex.Document(
-            documentclass=documentclass, document_options='dvips')
+    document_options = ('dvips',)
+    doc = pylatex.Document(documentclass=documentclass,
+            document_options=document_options, page_numbers=False)
     for package in packages:
         doc.packages.append(pylatex.Package(package))
     doc.append(pylatex.NoEscape(tex))

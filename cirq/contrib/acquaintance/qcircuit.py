@@ -14,7 +14,9 @@
 
 """QCircuit support for acquaintance module."""
 
-from typing import Iterable, Optional
+import itertools
+
+from typing import FrozenSet, Iterable, Optional, Tuple
 
 from cirq import ops, protocols
 from cirq.contrib import qcircuit
@@ -115,6 +117,18 @@ def permutation_qcircuit_diagram_info(
             hconnected=False,
             vconnected=False)
 
+def swap_qcircuit_diagram_info(
+        op: ops.Operation,
+        args: protocols.CircuitDiagramInfoArgs
+        ) -> Optional[protocols.CircuitDiagramInfo]:
+    if not (isinstance(op, ops.GateOperation) and 
+            op.gate == ops.SWAP):
+        return None
+    return protocols.CircuitDiagramInfo(
+            wire_symbols = ('{\\times}',) * 2,
+            vconnected = True,
+            hconnected = True)
+
 
 def get_qcircuit_diagram_info(
         op: ops.Operation,
@@ -122,7 +136,7 @@ def get_qcircuit_diagram_info(
         ) -> protocols.CircuitDiagramInfo:
     info = acquaintance_qcircuit_diagram_info(op, args)
     if info is None:
-        info = acquaintance_qcircuit_diagram_info(op, args)
+        info = swap_qcircuit_diagram_info(op, args)
     if info is None:
         info = permutation_qcircuit_diagram_info(op, args)
     if info is None:
@@ -130,29 +144,53 @@ def get_qcircuit_diagram_info(
     return info
 
 
-def permutation_followed_by_non_permutation(
-        first_op: ops.Operation, second_op: Optional[ops.Operation]) -> bool:
-    return bool(
-        ((second_op is None) or
-         (set(first_op.qubits) & set(second_op.qubits))) and
-        isinstance(first_op, ops.GateOperation) and
-        isinstance(first_op.gate, PermutationGate) and
-        not (isinstance(second_op, ops.GateOperation) and
-             isinstance(second_op.gate, PermutationGate)))
+def qubit_grouping(
+        op: ops.GateOperation,
+        reverse: bool=False
+        ) -> Tuple[FrozenSet[ops.QubitId]]:
+    if isinstance(op.gate, SwapNetworkGate):
+        i = 0
+        groups = []
+        part_lens = (reversed(op.gate.part_lens)
+                if reverse else op.gate.part_lens)
+        for part_len in part_lens:
+            groups.append(frozenset(op.qubits[i: i + part_len]))
+            i += part_len 
+        return tuple(groups)
+    if isinstance(op.gate, CircularShiftGate):
+        threshold = ((len(op.qubits) - op.gate.shift)
+                if reverse else op.gate.shift)
+        return (frozenset(op.qubits[:threshold]),
+                frozenset(op.qubits[threshold:]))
+    return None
+
+
+def padding_needed_after_permutation(
+        first_op: ops.Operation, second_op: Optional[ops.Operation]) -> int:
+    if not (isinstance(first_op, ops.GateOperation) and
+            isinstance(first_op.gate, PermutationGate)):
+        return 0
+    if second_op is None:
+        return 2
+    if not (set(first_op.qubits) & set(second_op.qubits)):
+        return 0
+    if (isinstance(second_op, ops.GateOperation) and
+        isinstance(second_op.gate, PermutationGate)):
+        first_grouping = qubit_grouping(first_op, reverse=True)
+        second_grouping = qubit_grouping(second_op)
+        if (first_grouping is None) or (second_grouping is None):
+            return 0
+        if any((first_group & second_group) and (first_group ^ second_group)
+                for first_group, second_group in
+                itertools.product(first_grouping, second_grouping)):
+            return 1
+        return 0
+    return 1
 
 PadAfterPermutationGates = qcircuit.PadBetweenOps(
-        permutation_followed_by_non_permutation)
+        padding_needed_after_permutation)
 
-def contains_swap_network_gate(
-        first_op: ops.Operation, second_op: Optional[ops.Operation]) -> bool:
-    return ((second_op is not None) and
-             any(isinstance(op, ops.GateOperation) and
-                 isinstance(op.gate, SwapNetworkGate)
-                 for op in (first_op, second_op)))
-
-PadAroundSwapNetworkGates = qcircuit.PadBetweenOps(contains_swap_network_gate)
-
-qcircuit_optimizers = ((PadAfterPermutationGates, PadAroundSwapNetworkGates) +
+qcircuit_optimizers = ((PadAfterPermutationGates,) +
         qcircuit.default_optimizers)
 
 default_qcircuit_kwargs = {

@@ -21,7 +21,7 @@ from cirq import circuits, ops
 
 class _EnsureFinalMomentEmpty(circuits.OptimizationPass):
     def optimize_circuit(self, circuit: circuits.Circuit):
-        if circuit[-1]:
+        if (not len(circuit)) or circuit[-1]:
             circuit.append(ops.Moment())
 
 
@@ -35,13 +35,16 @@ class PadBetweenOps(circuits.OptimizationPass):
         self.padding_needed = padding_needed
 
     def optimize_circuit(self, circuit: circuits.Circuit):
+        if not len(circuit):
+            return
         for i in reversed(range(len(circuit) - 1)):
             op_pairs = itertools.product(circuit[i], circuit[i + 1])
-            padding = max(itertools.chain((0,),
-                    (self.padding_needed(*op_pair) for op_pair in op_pairs)))
+            padding = (
+                    max(self.padding_needed(*op_pair) for op_pair in op_pairs)
+                    if (circuit[i] and circuit[i + 1]) else 0)
             circuit.insert(i + 1, (ops.Moment(),) * padding)
-        padding = max(itertools.chain((0,),
-                (self.padding_needed(op, None) for op in circuit[-1])))
+        padding = (max(self.padding_needed(op, None) for op in circuit[-1])
+                   if circuit[-1] else 0)
         circuit.append((ops.Moment(),) * padding)
 
 def swap_followed_by_non_swap(
