@@ -65,7 +65,7 @@ def circuit_to_qcircuit_diagram(
             protocols.CircuitDiagramInfo]] = None,
         qubit_namer: Optional[Callable[[ops.QubitId], str]] = None,
         qubit_order: ops.QubitOrderOrList = ops.QubitOrder.DEFAULT
-        ) -> str:
+        ) -> circuits.TextDiagramDrawer:
     """Returns a qcircuit-suitable diagram of the given circuit.
 
     Args:
@@ -94,7 +94,7 @@ def circuit_to_qcircuit_diagram(
 
 
 def circuit_to_latex_using_qcircuit(
-        circuit: circuits.Circuit, 
+        circuit: circuits.Circuit,
         **kwargs
         ) -> str:
     """Returns a QCircuit-based latex diagram of the given circuit.
