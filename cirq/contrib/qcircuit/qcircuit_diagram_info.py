@@ -36,7 +36,8 @@ def escape_text_for_latex(text):
 
 
 def get_multigate_parameters(
-        args: protocols.CircuitDiagramInfoArgs
+        args: protocols.CircuitDiagramInfoArgs,
+        strict_order: bool = False
         ) -> Optional[Tuple[int, int]]:
     if (args.qubit_map is None) or (args.known_qubits is None):
         return None
@@ -44,7 +45,9 @@ def get_multigate_parameters(
     indices = [args.qubit_map[q] for q in args.known_qubits]
     min_index = min(indices)
     n_qubits = len(args.known_qubits)
-    if sorted(indices) != list(range(min_index, min_index + n_qubits)):
+    if not strict_order:
+        indices = sorted(indices)
+    if indices != list(range(min_index, min_index + n_qubits)):
         return None
     return min_index, n_qubits
 

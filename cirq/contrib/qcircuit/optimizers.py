@@ -14,9 +14,13 @@
 
 import itertools
 
-from typing import Callable, Optional
+from typing import Callable, Optional, TYPE_CHECKING
 
 from cirq import circuits, ops
+
+if TYPE_CHECKING:
+    # pylint: disable=unused-import
+    from typing import Tuple
 
 
 class _EnsureFinalMomentEmpty(circuits.OptimizationPass):
@@ -63,4 +67,5 @@ def swap_followed_by_non_swap(
 
 PadAfterSwapGates = PadBetweenOps(swap_followed_by_non_swap)
 
-default_optimizers = (PadAfterSwapGates, EnsureFinalMomentEmpty)
+default_optimizers = (PadAfterSwapGates, EnsureFinalMomentEmpty
+        ) # type: Tuple[circuits.OptimizationPass, ...]

@@ -16,9 +16,9 @@
 
 import itertools
 
-from typing import FrozenSet, Iterable, Optional, Tuple
+from typing import cast, FrozenSet, Iterable, Optional, Tuple
 
-from cirq import ops, protocols
+from cirq import circuits, ops, protocols
 from cirq.contrib import qcircuit
 from cirq.contrib.acquaintance.gates import (
         AcquaintanceOpportunityGate, SwapNetworkGate)
@@ -53,11 +53,13 @@ GROUPING_LINE_THICKNESS = 5
 def get_vertical_grouping_lines(
         part_lens: Iterable[int],
         dx: int = 0,
-        thickness: int = 1):
+        thickness: int = 1,
+        upward: bool = True):
     part_lens = tuple(part_lens)
     if part_lens == (1, 1):
         return ('', '')
-    return (qcircuit.line_macro((dx, part_len - 1),
+    dy = 1 if upward else -1
+    return (qcircuit.line_macro((dx, dy* (part_len - 1)),
                                 thickness=thickness, start=(dx, 0))
             if not dl else ''
             for part_len in part_lens for dl in range(part_len))
@@ -74,9 +76,9 @@ def permutation_qcircuit_diagram_info(
     if args.qubit_map is None or args.known_qubits is None:
         return None
 
-    multigate_parameters = qcircuit.get_multigate_parameters(args)
 
     if isinstance(op.gate, SwapNetworkGate):
+        multigate_parameters = qcircuit.get_multigate_parameters(args, True)
         if multigate_parameters is None:
             return None
         _, n_qubits = multigate_parameters
@@ -92,14 +94,20 @@ def permutation_qcircuit_diagram_info(
             for dl in range(n_qubits))
         wire_symbol_groups = [start_lines, end_lines, join_lines]
     elif isinstance(op.gate, CircularShiftGate):
-        if multigate_parameters is None:
+        for s in (-1, 1):
+            qubits = args.known_qubits and tuple(args.known_qubits[::s])
+            parameters = qcircuit.get_multigate_parameters(
+                    args.with_args(known_qubits=qubits), True)
+            if parameters is not None:
+                break
+        else:
             return None
-        _, n_qubits = multigate_parameters
+        _, n_qubits = parameters
         part_lens = (op.gate.shift, n_qubits - op.gate.shift)
         start_lines = get_vertical_grouping_lines(part_lens,
-            thickness=GROUPING_LINE_THICKNESS)
+            thickness=GROUPING_LINE_THICKNESS, upward=(s > 0))
         end_lines = get_vertical_grouping_lines(reversed(part_lens),
-            thickness=GROUPING_LINE_THICKNESS, dx=1)
+            thickness=GROUPING_LINE_THICKNESS, dx=1, upward=(s > 0))
         wire_symbol_groups = [start_lines, end_lines]
     else:
         wire_symbol_groups = []
@@ -121,7 +129,7 @@ def swap_qcircuit_diagram_info(
         op: ops.Operation,
         args: protocols.CircuitDiagramInfoArgs
         ) -> Optional[protocols.CircuitDiagramInfo]:
-    if not (isinstance(op, ops.GateOperation) and 
+    if not (isinstance(op, ops.GateOperation) and
             op.gate == ops.SWAP):
         return None
     return protocols.CircuitDiagramInfo(
@@ -147,7 +155,7 @@ def get_qcircuit_diagram_info(
 def qubit_grouping(
         op: ops.GateOperation,
         reverse: bool=False
-        ) -> Tuple[FrozenSet[ops.QubitId]]:
+        ) -> Optional[Tuple[FrozenSet[ops.QubitId], ...]]:
     if isinstance(op.gate, SwapNetworkGate):
         i = 0
         groups = []
@@ -155,7 +163,7 @@ def qubit_grouping(
                 if reverse else op.gate.part_lens)
         for part_len in part_lens:
             groups.append(frozenset(op.qubits[i: i + part_len]))
-            i += part_len 
+            i += part_len
         return tuple(groups)
     if isinstance(op.gate, CircularShiftGate):
         threshold = ((len(op.qubits) - op.gate.shift)
@@ -190,7 +198,8 @@ def padding_needed_after_permutation(
 PadAfterPermutationGates = qcircuit.PadBetweenOps(
         padding_needed_after_permutation)
 
-qcircuit_optimizers = ((PadAfterPermutationGates,) +
+qcircuit_optimizers = (
+        (cast(circuits.OptimizationPass, PadAfterPermutationGates),) +
         qcircuit.default_optimizers)
 
 default_qcircuit_kwargs = {
