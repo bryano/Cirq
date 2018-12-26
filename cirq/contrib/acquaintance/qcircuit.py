@@ -192,6 +192,8 @@ def padding_needed_after_permutation(
                 for first_group, second_group in
                 itertools.product(first_grouping, second_grouping)):
             return 1
+        if type(first_op.gate) != type(second_op.gate):
+            return 1
         return 0
     return 1
 
